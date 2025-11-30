@@ -1,0 +1,22 @@
+[
+    {
+        "username": "admin",
+        "key": "admin123"
+    },
+    {
+        "username": "user1",
+        "key": "music2025"
+    },
+    {
+        "username": "user2",
+        "key": "sonicgrid"
+    },
+    {
+        "username": "user3",
+        "key": "beatmaker"
+    },
+    {
+        "username": "user4",
+        "key": "producer"
+    }
+]

@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-gray-900/70 backdrop-blur-md border border-gray-800;
+  }
+  
+  .glass-button {
+    @apply bg-gray-800/50 hover:bg-gray-700/50 backdrop-blur-sm border border-gray-700 transition-all;
+  }
+}
+
+body {
+  @apply bg-gray-950 text-gray-200;
+}

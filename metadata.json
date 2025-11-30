@@ -1,0 +1,7 @@
+{
+  "name": "SonicGrid AI",
+  "description": "A professional-grade sound board with customizable layouts, audio recording, and AI-powered text-to-speech generation using Gemini.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

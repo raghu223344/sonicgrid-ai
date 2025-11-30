@@ -1,0 +1,8 @@
+{
+  "name": "sonicgrid-ai-worker",
+  "compatibility_date": "2025-11-25",
+  "main": "worker/index.ts",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ]
+}
