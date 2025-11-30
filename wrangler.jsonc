@@ -1,5 +1,5 @@
 {
-  "name": "sonicgrid-ai-worker",
+  "name": "funsounds",
   "compatibility_date": "2025-11-25",
   "main": "worker/index.ts",
   "compatibility_flags": [
