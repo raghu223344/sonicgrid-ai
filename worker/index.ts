@@ -2,6 +2,7 @@ import { GoogleGenAI, Modality } from "@google/genai";
 
 interface Env {
 	GEMINI_API_KEY: string;
+	ASSETS: Fetcher;
 }
 
 export default {
@@ -70,6 +71,7 @@ export default {
 			}
 		}
 
-		return new Response("Not Found", { status: 404 });
+		// Serve static assets for all other routes
+		return env.ASSETS.fetch(request);
 	},
 };
