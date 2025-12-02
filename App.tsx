@@ -7,7 +7,7 @@ import EditorModal from './components/EditorModal';
 import AudioEditor from './pages/AudioEditor';
 import Login from './pages/Login';
 import GlobalPlayer from './components/GlobalPlayer';
-import { loadBoards, saveBoard, deleteBoard } from './services/db';
+import { loadBoards, saveBoard, deleteBoard, saveSound, deleteSound } from './services/db';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import { PlayerProvider } from './context/PlayerContext';
 
@@ -122,9 +122,10 @@ const BoardView: React.FC = () => {
       return;
     }
 
+    await deleteSound(soundId);
+
     const updatedSounds = activeBoard.sounds.filter(s => s.id !== soundId);
     const updatedBoard = { ...activeBoard, sounds: updatedSounds };
-    await saveBoard(updatedBoard);
     setBoards(boards.map(b => b.id === updatedBoard.id ? updatedBoard : b));
   };
 
@@ -144,6 +145,8 @@ const BoardView: React.FC = () => {
       createdBy: soundData.createdBy || user || 'unknown' // Attach creator
     };
 
+    await saveSound(newSound, activeBoard.id);
+
     let updatedSounds;
     const exists = activeBoard.sounds.find(s => s.id === newSound.id);
     if (exists) {
@@ -153,7 +156,6 @@ const BoardView: React.FC = () => {
     }
 
     const updatedBoard = { ...activeBoard, sounds: updatedSounds };
-    await saveBoard(updatedBoard);
     setBoards(boards.map(b => b.id === updatedBoard.id ? updatedBoard : b));
     setIsModalOpen(false);
   };

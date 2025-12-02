@@ -1,97 +1,89 @@
 import { Sound, SoundBoard } from '../types';
 
-const DB_NAME = 'SonicGridDB';
-const DB_VERSION = 1;
-const STORE_BOARDS = 'boards';
-const STORE_SOUNDS = 'sounds'; // We store blobs separately to avoid massive JSON objects
-
-export const initDB = (): Promise<IDBDatabase> => {
+// Helper to convert Blob to Base64
+const blobToBase64 = (blob: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(STORE_BOARDS)) {
-        db.createObjectStore(STORE_BOARDS, { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains(STORE_SOUNDS)) {
-        db.createObjectStore(STORE_SOUNDS, { keyPath: 'id' });
-      }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      // Remove data URL prefix (e.g., "data:audio/wav;base64,")
+      const base64 = base64String.split(',')[1];
+      resolve(base64);
     };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
   });
 };
 
-export const saveBoard = async (board: SoundBoard): Promise<void> => {
-  const db = await initDB();
-  return new Promise((resolve, reject) => {
-    // Separate blobs from board data to keep metadata light
-    const soundsMetadata = board.sounds.map(s => {
-      const { blob, ...meta } = s;
-      return meta;
-    });
-
-    const boardToSave = { ...board, sounds: soundsMetadata };
-
-    const transaction = db.transaction([STORE_BOARDS, STORE_SOUNDS], 'readwrite');
-    
-    // Save Board Metadata
-    transaction.objectStore(STORE_BOARDS).put(boardToSave);
-
-    // Save Sound Blobs
-    const soundStore = transaction.objectStore(STORE_SOUNDS);
-    board.sounds.forEach(s => {
-      if (s.blob) {
-        soundStore.put({ id: s.id, blob: s.blob });
-      }
-    });
-
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
-  });
+// Helper to convert Base64 to Blob
+const base64ToBlob = (base64: string, type: string = 'audio/wav'): Blob => {
+  const byteCharacters = atob(base64);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  return new Blob([byteArray], { type });
 };
 
 export const loadBoards = async (): Promise<SoundBoard[]> => {
-  const db = await initDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction([STORE_BOARDS, STORE_SOUNDS], 'readonly');
-    const boardStore = transaction.objectStore(STORE_BOARDS);
-    const soundStore = transaction.objectStore(STORE_SOUNDS);
+  const response = await fetch('/api/boards');
+  if (!response.ok) throw new Error('Failed to load boards');
 
-    const boardRequest = boardStore.getAll();
+  const boards = await response.json() as any[];
 
-    boardRequest.onsuccess = async () => {
-      const boards = boardRequest.result as any[];
-      
-      // Re-attach blobs
-      const populatedBoards = await Promise.all(boards.map(async (board) => {
-        const sounds = await Promise.all(board.sounds.map(async (soundMeta: Sound) => {
-          return new Promise<Sound>((res) => {
-             const blobReq = soundStore.get(soundMeta.id);
-             blobReq.onsuccess = () => {
-               res({ ...soundMeta, blob: blobReq.result?.blob });
-             };
-             blobReq.onerror = () => res(soundMeta); // Fallback if blob missing
-          });
-        }));
-        return { ...board, sounds };
-      }));
-      
-      resolve(populatedBoards);
-    };
+  // Process boards to convert base64 audio back to Blobs
+  return boards.map((board: any) => ({
+    ...board,
+    sounds: board.sounds.map((s: any) => ({
+      ...s,
+      blob: s.audioData ? base64ToBlob(s.audioData) : undefined,
+      audioData: undefined // Clean up
+    }))
+  }));
+};
 
-    boardRequest.onerror = () => reject(boardRequest.error);
+export const saveBoard = async (board: SoundBoard): Promise<void> => {
+  // Only save board metadata here. Sounds are saved individually.
+  const { sounds, ...metadata } = board;
+
+  const response = await fetch('/api/boards', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(metadata)
   });
+
+  if (!response.ok) throw new Error('Failed to save board');
 };
 
 export const deleteBoard = async (id: string): Promise<void> => {
-    const db = await initDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction([STORE_BOARDS], 'readwrite');
-        transaction.objectStore(STORE_BOARDS).delete(id);
-        transaction.oncomplete = () => resolve();
-        transaction.onerror = () => reject(transaction.error);
-    });
+  const response = await fetch(`/api/boards/${id}`, { method: 'DELETE' });
+  if (!response.ok) throw new Error('Failed to delete board');
+};
+
+export const saveSound = async (sound: Sound, boardId: string): Promise<void> => {
+  let audioData = null;
+  if (sound.blob) {
+    audioData = await blobToBase64(sound.blob);
+  }
+
+  const payload = {
+    ...sound,
+    board_id: boardId,
+    audioData,
+    blob: undefined // Don't send blob object
+  };
+
+  const response = await fetch('/api/sounds', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) throw new Error('Failed to save sound');
+};
+
+export const deleteSound = async (id: string): Promise<void> => {
+  const response = await fetch(`/api/sounds/${id}`, { method: 'DELETE' });
+  if (!response.ok) throw new Error('Failed to delete sound');
 };
